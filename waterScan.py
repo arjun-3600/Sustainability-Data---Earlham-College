@@ -229,6 +229,8 @@ if __name__ == "__main__":
     parser.add_argument("-e", help='existing excel file')
     args = parser.parse_args()
     for file in os.listdir(args.f):
+        if not file.lower().endswith(".pdf"):
+            continue
         infile = os.path.join(args.f, file)
         print(f"Processing {file}...")
         initialize_bill(infile)
