@@ -22,9 +22,9 @@ def parse_pdf(list_file_name, root):
             for page in range(size_doc):
                 p0 = pdf.pages[page]
                 text = p0.extract_text(keep_blank_chars=True)
-                output = open("output.txt",'w')
+                output = open("output.txt",'w', encoding='utf-8')
                 output.write(text)
-                output = open('output.txt', 'r')
+                output = open('output.txt', 'r', encoding='utf-8')
                 save = -1
                 for num, line in enumerate(output.readlines()):
                     list_line = str(line).strip().split(' ')
