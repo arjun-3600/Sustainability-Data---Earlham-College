@@ -18,10 +18,10 @@ def parse_CombinedPDF(file_name):
         text = ''
         for page in pdf.pages: # write pdf file to txt file for ease of access
             text += page.extract_text(keep_blank_chars=True)
-        output = open("output1.txt",'w')
-        output.write(text)
-        output = open('output1.txt', 'r')
-        lines = output.readlines()
+        with open("output1.txt", "w", encoding="utf-8") as output:
+            output.write(text)
+        with open("output1.txt", "r", encoding="utf-8") as output:
+            lines = output.readlines()
         finished = False
         for line in enumerate(lines): # iterate through lines of txt file
             if line[1] == 'ACCOUNT ACCOUNT NAME BILLING PERIOD USAGE CURRENT CHARGES\n' and finished == False: # this line appears right before the account information
@@ -64,14 +64,15 @@ def parse_CombinedPDF(file_name):
 # This function will be called if it's determined that the PDF contains a single bill
 # The function extracts the account number, meter number, amount, and usage from the doc, then updates data_dic
 def parse_SinglePDF(file_name):
+    account = meter = amount = usage = None
     with pdfplumber.open(file_name) as pdf: # open pdf file
         text = ''
         for page in pdf.pages: # write pdf file to txt file for ease of access
             text += page.extract_text(keep_blank_chars=True)
-        output = open("output2.txt",'w')
-        output.write(text)
-        output = open('output2.txt', 'r')
-        lines = output.readlines()
+        with open("output2.txt", "w", encoding="utf-8") as output:
+            output.write(text)
+        with open("output2.txt", "r", encoding="utf-8") as output:
+            lines = output.readlines()
         for line in enumerate(lines): # iterate through lines of txt file
             if 'CUSTOMER ACCOUNT NUMBER' in line[1]:
                 next = lines[line[0]+1].strip().split(' ')
@@ -82,15 +83,31 @@ def parse_SinglePDF(file_name):
                 amount = line[1].strip().split(' ')[-1].replace(',','') # amount line
             if 'Demand - Charge for some larger customers' in line[1]:
                 usage = line[1].strip().split(' ')[-2] # usage line
-        if account and meter and amount and usage:
-            data_dic.update({meter: [account, amount, usage]})
+        missing_fields = [
+            field for field, value in (
+                ('account', account),
+                ('meter', meter),
+                ('amount', amount),
+                ('usage', usage),
+            )
+            if value is None
+        ]
+        if missing_fields:
+            raise ValueError(
+                f"Could not extract {', '.join(missing_fields)} from PDF: {file_name}"
+            )
+        data_dic.update({meter: [account, amount, usage]})
          
 
 def parse(list_file_name, root):
-    combinedBills = ['CNP-008000098669-Bill.pdf', 'CNP-008000098670-Bill.pdf', 'CNP-008000098470-Bill.pdf', 'CNP-008000098668-Bill.pdf', 'CombinedBill.pdf']
     for file_name in list_file_name:
-        path = root + "/" + file_name
-        if file_name in combinedBills:
+        path = os.path.join(root, file_name)
+        with pdfplumber.open(path) as pdf:
+            text = " ".join(
+                (page.extract_text() or "")
+                for page in pdf.pages
+            )
+        if 'ACCOUNT ACCOUNT NAME BILLING PERIOD USAGE CURRENT CHARGES' in text:
             parse_CombinedPDF(path)
         else:
             parse_SinglePDF(path)
@@ -124,7 +141,7 @@ def update_excel(workbook, new_values, month):
                 row[index_amount].value = j.iloc[0]
                 row[index_usage].value = j.iloc[2]
 
-    workbook.save('UpdatedOutput.xlsx')
+    workbook.save('UpdatedOutputGas.xlsx')
     
     
 if __name__ == "__main__":
