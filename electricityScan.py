@@ -49,6 +49,8 @@ def parse_pdf(list_file_name, root):
 
 def update_excel(workbook, new_values, month):
     sheet = workbook["Electricity"]
+    index_amount = None
+    index_usage = None
 
     # Look up both headers exactly, ignoring extra or non-breaking spaces
     month = " ".join(month.split())
@@ -87,7 +89,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Parse info in pdf files")
     parser.add_argument("-f", help="folder name") 
     parser.add_argument("-e", help='existing excel file')
-    parser.add_argument("-m", help="month") 
+    parser.add_argument("-m", help="month", required=True) 
     args = parser.parse_args()
 
     files = os.listdir(args.f)
