@@ -35,8 +35,15 @@ def parse_CombinedPDF(file_name):
                     if 'THM' in next: # this line contains the account number, amount, and usage information
                         thisline = next.strip().split(' ')
                         if thisline[-1] == 'THM': # alternative logic for messed up bills where THM gets pushed to next line
-                            thisline = lines[line[0]+Count-2].strip().split(' ')
-                            account_num = thisline[0]
+                            # the account line is usually 1 line up, but 2 when its row number wrapped onto its own line
+                            if ' - ' in lines[line[0]+Count-1]:
+                                thisline = lines[line[0]+Count-1].strip().split(' ')
+                            else:
+                                thisline = lines[line[0]+Count-2].strip().split(' ')
+                            if thisline[0].isnumeric() == True and len(thisline[0]) <= 2: # skip the row number at the start of the line
+                                account_num = thisline[1]
+                            else:
+                                account_num = thisline[0]
                             amount = thisline[-1].replace(',','')
                             usage = thisline[-2]
                         else: # standard logic
@@ -125,21 +132,35 @@ def convert_dic(old_dic):
     return(updated_dic)
 
 def update_excel(workbook, new_values, month):
-    specific_month = month
     sheet = workbook["Natural Gas"]
+
+    # Look up the amount header exactly, ignoring extra or non-breaking spaces
+    month = " ".join(month.split())
+    headers = {" ".join(str(cell.value).split()): count
+               for count, cell in enumerate(sheet[4]) if cell.value is not None}
+    amount_header = f"{month} Amount"
+    if amount_header not in headers:
+        valid_months = [header[:-len(" Amount")] for header in headers if header.endswith(" Amount")]
+        raise ValueError(f"Could not find '{amount_header}' in row 4 of the Natural Gas sheet. Valid months: {', '.join(valid_months)}")
+    index_amount = headers[amount_header]
+    # Usage is always the next column; July's headers are spelled differently ('Jul Amount', 'Jul. Usage')
+    index_usage = index_amount + 1
     
-    for count, cell in enumerate(sheet[4]):
-        if cell.value is not None:
-            value = cell.value.split(" ")[0]
-            if value == specific_month:
-                index_amount = count - 1
-                index_usage = count 
-    
+    unmatched = []
     for i, j in new_values.iterrows():
+        found = False
         for row in sheet.iter_rows(min_row=4):
             if row[4].value == j.iloc[1]:
                 row[index_amount].value = j.iloc[0]
                 row[index_usage].value = j.iloc[2]
+                found = True
+        if not found:
+            unmatched.append(j)
+
+    if unmatched:
+        print(f"{len(unmatched)} bill(s) had no matching meter in column E:")
+        for j in unmatched:
+            print(f"  meter {j.iloc[1]}, ${j.iloc[0]}, {j.iloc[2]} THM")
 
     workbook.save('UpdatedOutputGas.xlsx')
     
